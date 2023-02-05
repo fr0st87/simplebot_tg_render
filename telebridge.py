@@ -136,7 +136,7 @@ global SYNC_ENABLED
 SYNC_ENABLED = 0
 
 global UPDATE_DELAY
-UPDATE_DELAY = 16
+UPDATE_DELAY = 10
 
 global authorize_url
 authorize_url = None
@@ -359,7 +359,7 @@ def deltabot_init(bot: DeltaBot) -> None:
     MAX_MSG_LOAD = int(MAX_MSG_LOAD)
     MAX_MSG_LOAD_AUTO = bot.get('MAX_MSG_LOAD_AUTO') or 5
     MAX_MSG_LOAD_AUTO = int(MAX_MSG_LOAD_AUTO)
-    MAX_AUTO_CHATS = bot.get('MAX_AUTO_CHATS') or 10
+    MAX_AUTO_CHATS = bot.get('MAX_AUTO_CHATS') or 50
     MAX_AUTO_CHATS = int(MAX_AUTO_CHATS)
     MAX_SIZE_DOWN = bot.get('MAX_SIZE_DOWN') or 20485760
     MAX_SIZE_DOWN = int(MAX_SIZE_DOWN)
@@ -367,7 +367,7 @@ def deltabot_init(bot: DeltaBot) -> None:
     MIN_SIZE_DOWN = int(MIN_SIZE_DOWN)
     CAN_IMP = bot.get('CAN_IMP') or 0
     CAN_IMP = int(CAN_IMP)
-    UPDATE_DELAY = bot.get('UPDATE_DELAY') or 16
+    UPDATE_DELAY = bot.get('UPDATE_DELAY') or 10
     UPDATE_DELAY = int(UPDATE_DELAY)
     SYNC_ENABLED = bot.get('SYNC_ENABLED') or 0
     SYNC_ENABLED = int(SYNC_ENABLED)
@@ -1213,7 +1213,7 @@ async def login_2fa(bot, payload, replies, message):
           del smsdb[addr]
        else:
           if addr not in clientdb:
-             replies.add(text = 'Debe introducir primero si numero de movil con /login NUMERO')
+             replies.add(text = 'Debe introducir primero su numero de movil con /login NUMERO')
           else:
              if addr not in smsdb:
                 replies.add(text = 'Debe introducir primero el sms que le ha sido enviado con /sms CODIGO')
@@ -1612,7 +1612,7 @@ async def load_chat_messages(bot: DeltaBot, message = Message, replies = Replies
               reactions_text = ''
               comment_text = ''
               sender_name = None
-              down_button = "\n⬇ /down_"+str(m.id)+"\n🔽 /pdown_"+str(m.id)+"\n⏩ /forward_"+str(m.id)+"_tg_file_link_bot\n⏩ /forward_"+str(m.id)+"_DirectLinkGeneratorbot"
+              down_button = "\n⬇ /down_"+str(m.id)+"\n🔽 /pdown_"+str(m.id)+"\n⏩ /forward_"+str(m.id)+"_FilesToIinkBot\n⏩ /forward_"+str(m.id)+"_karurosagu_mail_extra_bot"
               if show_id:
                  msg_id = '\n'+str(m.id)
 
