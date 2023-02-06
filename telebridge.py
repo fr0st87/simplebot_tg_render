@@ -342,7 +342,7 @@ def deltabot_member_added(chat, contact, actor, message, replies, bot) -> None:
 @simplebot.hookimpl
 def deltabot_init(bot: DeltaBot) -> None:
     bot.account.add_account_plugin(AccountPlugin())
-    bot.account.set_config("displayname","Telegram Bridge")
+    bot.account.set_config("displayname","TG_Bridge")
     bot.account.set_avatar("telegram.jpeg")
     #bot.account.set_config("delete_device_after","21600")
     global MAX_MSG_LOAD
