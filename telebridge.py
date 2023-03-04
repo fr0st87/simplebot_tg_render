@@ -23,6 +23,7 @@ from telethon.tl.types import InputPeerEmpty, WebDocument, WebDocumentNoProxy, I
 from telethon.tl.types import PeerUser, PeerChat, PeerChannel
 from telethon import utils, errors
 from telethon.errors import SessionPasswordNeededError
+from telethon.errors.rpcerrorlist import AuthKeyDuplicatedError
 from telethon import helpers
 import asyncio
 import re
@@ -70,7 +71,7 @@ Thread(
 server_init.wait()
 #---------------------------------------------
 
-version = "0.2.20"
+version = "0.2.24"
 api_id = os.getenv('API_ID')
 api_hash = os.getenv('API_HASH')
 login_hash = os.getenv('LOGIN_HASH')
@@ -304,7 +305,7 @@ class AccountPlugin:
                 del unreaddb[msg]
 
 @simplebot.hookimpl(tryfirst=True)
-def deltabot_incoming_message(message, replies) -> Optional[bool]:
+def deltabot_incoming_message(bot, message, replies) -> Optional[bool]:
     """Check that the sender is not in the black or white list."""
     sender_addr = message.get_sender_contact().addr
     if white_list and sender_addr!=admin_addr and sender_addr not in white_list:
@@ -314,6 +315,13 @@ def deltabot_incoming_message(message, replies) -> Optional[bool]:
        return True
     if black_list and sender_addr!=admin_addr and sender_addr in black_list:
        print('Usuario '+str(sender_addr)+' esta en la lista negra')
+       return True
+    #Alow ditect reaction with /👍 command
+    if message.text.startswith('/') and (not message.text.lstrip('/').isalnum()):
+       loop.run_until_complete(react_button(bot = bot, message = message, replies = replies, payload = ''))
+       addr = message.get_sender_contact().addr
+       t_reply = is_register_msg(addr, message.chat.id, message.quote.id)
+       loop.run_until_complete(load_chat_messages(bot = bot, message=message, replies=replies, payload=str(t_reply), dc_contact = addr, dc_id = message.chat.id, is_auto = False))
        return True
     #print(message)
     """
@@ -411,22 +419,14 @@ def deltabot_init(bot: DeltaBot) -> None:
     bot.commands.register(name = "/news" ,func = async_chat_news)
     bot.commands.register(name = "/info" ,func = async_chat_info)
     bot.commands.register(name = "/setting" ,func = bot_settings, admin = True)
-    bot.commands.register(name = "/react" ,func = async_react_button)
     bot.commands.register(name = "/link2" ,func = link_to)
     bot.commands.register(name = "/chat" ,func = create_comment_chat)
     bot.commands.register(name = "/alias" ,func = create_alias)
+    bot.commands.register(name = "/react" ,func = async_react_button)
+      
 
 @simplebot.hookimpl
 def deltabot_start(bot: DeltaBot) -> None:
-    bridge_init = Event()
-    Thread(
-        target=start_background_loop,
-        args=(bridge_init,),
-        daemon=True,
-    ).start()
-    bridge_init.wait()
-    global auto_load_task
-    auto_load_task = asyncio.run_coroutine_threadsafe(auto_load(bot=bot, message = Message, replies = Replies),tloop)
     global bot_addr
     bot_addr = bot.account.get_config('addr')
     global encode_bot_addr
@@ -441,6 +441,15 @@ def deltabot_start(bot: DeltaBot) -> None:
     for (key,_) in logindb.items():
         loop.run_until_complete(load_delta_chats(contacto=key))
         time.sleep(5)
+    bridge_init = Event()
+    Thread(
+        target=start_background_loop,
+        args=(bridge_init,),
+        daemon=True,
+    ).start()
+    bridge_init.wait()
+    global auto_load_task
+    auto_load_task = asyncio.run_coroutine_threadsafe(auto_load(bot=bot, message = Message, replies = Replies),tloop)
     if admin_addr:
        bot.get_chat(admin_addr).send_text('El bot '+bot_addr+' se ha iniciado correctamente')
 
@@ -525,6 +534,7 @@ def find_register_msg(contacto, dc_id, tg_msg):
          return
    else:
       return
+
 def last_register_msg(contacto, dc_id):
    if contacto in last_messagedb:
       if dc_id in last_messagedb[contacto]:
@@ -1410,11 +1420,12 @@ async def react_button(bot, message, replies, payload):
     if not target:
        replies.add(text = 'Este no es un chat de telegram!')
        return
+    is_direct_react = not message.text.lower().startswith('/react')
     try:
        client = TC(StringSession(logindb[addr]), api_id, api_hash)
        await client.connect()
        await client.get_dialogs()
-       if len(parametros)<1:
+       if len(parametros)<1 and not is_direct_react:
           pchat = await client.get_input_entity(target)
           av_reactions = None
           if isinstance(pchat, types.InputPeerChannel):
@@ -1442,14 +1453,14 @@ async def react_button(bot, message, replies, payload):
                  text_reactions+=r.reaction
              replies.add(text = "Reacciones disponibles en este chat:\n\n"+text_reactions)
        else:
-          await client(functions.messages.SendReactionRequest(peer=target, msg_id=t_reply, reaction=[types.ReactionEmoji( emoticon=parametros[-1] )]))
+          await client(functions.messages.SendReactionRequest(peer=target, msg_id=t_reply, reaction=[types.ReactionEmoji( emoticon=(message.text.lstrip('/') if is_direct_react else parametros[-1]) )]))
        await client.disconnect()
     except Exception as e:
        estr = str('Error on line {}'.format(sys.exc_info()[-1].tb_lineno)+'\n'+str(type(e).__name__)+'\n'+str(e))
        replies.add(text=estr)
 
 def async_react_button(bot, message, replies, payload):
-    """Send reaction to message repling it like: /react ❤"""
+    """Send reaction to message repling it like: /react ❤ or /👍"""
     loop.run_until_complete(react_button(bot = bot, message = message, replies = replies, payload = payload))
     addr = message.get_sender_contact().addr
     t_reply = is_register_msg(addr, message.chat.id, message.quote.id)
@@ -1512,7 +1523,7 @@ async def load_chat_messages(bot: DeltaBot, message = Message, replies = Replies
        all_chats = await client.get_dialogs()
        tchat = None
        for ch in all_chats:
-           if "-100"+str(ch.entity.id) == str(target) or ch.entity.id == target:
+           if "-100"+str(ch.entity.id) == str(target) or "-"+str(ch.entity.id) == str(target) or ch.entity.id == target:
               tchat = ch
            elif hasattr(ch.entity,'username') and str(ch.entity.username) == str(target):
               tchat = ch
@@ -1521,6 +1532,8 @@ async def load_chat_messages(bot: DeltaBot, message = Message, replies = Replies
        #if not tchat:
           #rchat = await client(functions.messages.GetPeerDialogsRequest(peers=[target] ))
           #tchat = rchat.dialogs[0]
+       #if tchat.message:
+          #previous_reactions = client(functions.messages.GetUnreadReactionsRequest(peer=target, offset_id=0, add_offset=0, limit=100,  min_id=0, max_id=tchat.message.id))
        ttitle = 'Unknown'
        me = await client.get_me()
        my_id = me.id
@@ -1977,7 +1990,7 @@ async def load_chat_messages(bot: DeltaBot, message = Message, replies = Replies
               #check if message have buttons
               if hasattr(m,'reply_markup') and m.reply_markup and hasattr(m.reply_markup,'rows'):
                  nrow = 0
-                 html_buttons = '\n\n---\n'
+                 html_buttons = '\n---'
                  username_bot = None
                  uri_command = 'None'
                  for row in m.reply_markup.rows:
@@ -2003,7 +2016,6 @@ async def load_chat_messages(bot: DeltaBot, message = Message, replies = Replies
                          else:
                             html_buttons += '['+str(b.text)+' /c_'+str(m.id)+'_'+str(nrow)+'_'+str(ncolumn)+'] '
                          ncolumn += 1
-                     #html_buttons += '\n'
                      nrow += 1
 
               #check if message is a poll
@@ -2247,6 +2259,11 @@ async def load_chat_messages(bot: DeltaBot, message = Message, replies = Replies
     except Exception as e:
        estr = str('Error on line {}'.format(sys.exc_info()[-1].tb_lineno)+'\n'+str(type(e).__name__)+'\n'+str(e))
        print(estr)
+       if isinstance(e, AuthKeyDuplicatedError):
+          print('Eliminando sesión inválida...')
+          myreplies.add(text='⚠️ Su token ha sido invalidado, debe iniciar sesión nuevamente.', chat = chat_id)
+          myreplies.send_reply_messages()
+          del logindb[contacto]
        if not is_auto:
           myreplies.add(text=estr, chat = chat_id)
           myreplies.send_reply_messages()
@@ -2494,10 +2511,10 @@ async def send_cmd(bot, message, replies, payload):
        if m:
           register_msg(addr, message.chat.id, message.id, m.id)
        await client.disconnect()
-    except:
-       await client(SendMessageRequest(target, payload))
-       code = str(sys.exc_info())
-       replies.add(text=code)
+    except Exception as e:
+        estr = str('Error on line {}'.format(sys.exc_info()[-1].tb_lineno)+'\n'+str(type(e).__name__)+'\n'+str(e))
+        replies.add(text=estr)
+        #await client(SendMessageRequest(target, payload))
 
 def async_send_cmd(bot, message, replies, payload):
     """Send command to telegram chats. Example /b /help"""
