@@ -363,9 +363,9 @@ def deltabot_init(bot: DeltaBot) -> None:
     global UPDATE_DELAY
     global white_list
     global black_list
-    MAX_MSG_LOAD = bot.get('MAX_MSG_LOAD') or 5
+    MAX_MSG_LOAD = bot.get('MAX_MSG_LOAD') or 15
     MAX_MSG_LOAD = int(MAX_MSG_LOAD)
-    MAX_MSG_LOAD_AUTO = bot.get('MAX_MSG_LOAD_AUTO') or 5
+    MAX_MSG_LOAD_AUTO = bot.get('MAX_MSG_LOAD_AUTO') or 15
     MAX_MSG_LOAD_AUTO = int(MAX_MSG_LOAD_AUTO)
     MAX_AUTO_CHATS = bot.get('MAX_AUTO_CHATS') or 50
     MAX_AUTO_CHATS = int(MAX_AUTO_CHATS)
@@ -375,7 +375,7 @@ def deltabot_init(bot: DeltaBot) -> None:
     MIN_SIZE_DOWN = int(MIN_SIZE_DOWN)
     CAN_IMP = bot.get('CAN_IMP') or 0
     CAN_IMP = int(CAN_IMP)
-    UPDATE_DELAY = bot.get('UPDATE_DELAY') or 10
+    UPDATE_DELAY = bot.get('UPDATE_DELAY') or 15
     UPDATE_DELAY = int(UPDATE_DELAY)
     SYNC_ENABLED = bot.get('SYNC_ENABLED') or 0
     SYNC_ENABLED = int(SYNC_ENABLED)
